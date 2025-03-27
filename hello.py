@@ -4,15 +4,15 @@ class State(TypedDict):
     graph_state: str
 
 def node_1(state):
-    print("---Node 1---")
+    # print("---Node 1---")
     return {"graph_state": state['graph_state'] +" I am"}
 
 def node_2(state):
-    print("---Node 2---")
+    # print("---Node 2---")
     return {"graph_state": state['graph_state'] +" happy!"}
 
 def node_3(state):
-    print("---Node 3---")
+    # print("---Node 3---")
     return {"graph_state": state['graph_state'] +" sad!"}
 
 import random
@@ -51,8 +51,8 @@ builder.add_edge("node_3", END)
 graph = builder.compile()
 
 # View
-display(Image(graph.get_graph().draw_mermaid_png()))
+# display(Image(graph.get_graph().draw_mermaid_png()))
 
 result = graph.invoke({"graph_state" : "Hi, this is Lance."})
 
-print("Final state: ", result)
+print("Final state: ", result['graph_state'])
