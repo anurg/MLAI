@@ -1,68 +1,72 @@
 from pprint import pprint
-from langchain_core.messages import AIMessage, HumanMessage
-
-messages = [AIMessage(content=f"So you said you were researching ocean mammals?", name="Model")]
-messages.append(HumanMessage(content=f"Yes, that's right.",name="Lance"))
-messages.append(AIMessage(content=f"Great, what would you like to learn about.", name="Model"))
-messages.append(HumanMessage(content=f"I want to learn about the best place to see Orcas in the India.", name="Lance"))
-
-for m in messages:
-    m.pretty_print()
-
-import os, getpass
-
-# def _set_env(var: str):
-#     if not os.environ.get(var):
-#         os.environ[var] = getpass.getpass(f"{var}: ")
-
-# _set_env("OPENAI_API_KEY")
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, ToolMessage,AnyMessage
+import os
+from langchain_openai import ChatOpenAI
+from langgraph.graph import MessagesState
+from langgraph.graph.message import add_messages
+#  Add dotenv for loading OPENAI_API_KEY
 import dotenv
 dotenv.load_dotenv()
+
+messages = [AIMessage(content="So You said you are researching ocean mammals", name="Model")]
+messages.append(HumanMessage(content="Yeah, that's right.",name="Lance"))
+messages.append(AIMessage(content="Great, so what would you like  to learn about!",name="Model"))
+messages.append(HumanMessage(content="I would like to learn about the best places to see Orca in India",name="Lance"))
+
+# for m in messages:
+#     m.pretty_print()
+
 # print(os.environ.get("OPENAI_API_KEY"))
 
-from langchain_openai import ChatOpenAI
 llm = ChatOpenAI(model="gpt-4o")
 # result = llm.invoke(messages)
 # print(type(result))
-# print(result.content)
+# result.pretty_print()
 
-def multiply(a:int, b:int) -> int:
-    """ Multiply a and b
-    Args: 
-        a: first integer
-        b: second integer
-    
+# define tool and bind with llm
+def multiply(a: int, b: int) -> int:
+    """
+    Multiply a and b
+    Args:
+        a: first int
+        b: second int
     """
     return a * b
 
 llm_with_tools = llm.bind_tools([multiply])
-tool_call = llm_with_tools.invoke([HumanMessage(content=f"What is 2 multiplied by 3", name="Lance")])
-# print(tool_call.additional_kwargs["tool_calls"][0]["function"])
 
-from langgraph.graph import MessagesState
+# tool_call = llm_with_tools.invoke([HumanMessage(content="What is 23 multiplied by 2", name="Lance")])
+# tool_call.pretty_print()
 
 class MessagesState(MessagesState):
-    # Add any keys needed beyond messages, which is pre-built 
     pass
+
+# initial_messages=[AIMessage(content="Hello, How can I assist you?",name="Model"),
+#                   HumanMessage(content="I am looking for information on Marine Biology",name="Lance")]
+
+# new_message=AIMessage(content="Sure,I can help you with that. What speciality are you interested in?", name="Model")
+# messages=add_messages(initial_messages,new_message)
+# for m in messages:
+#     m.pretty_print()
 
 from IPython.display import Image, display
 from langgraph.graph import StateGraph, START, END
-    
+
 # Node
-def tool_calling_llm(state: MessagesState):
+def tool_calling_llm(state:MessagesState):
     return {"messages": [llm_with_tools.invoke(state["messages"])]}
 
-# Build graph
 builder = StateGraph(MessagesState)
 builder.add_node("tool_calling_llm", tool_calling_llm)
 builder.add_edge(START, "tool_calling_llm")
-builder.add_edge("tool_calling_llm", END)
+builder.add_edge("tool_calling_llm",END)
 graph = builder.compile()
 
-# messages = graph.invoke({"messages": HumanMessage(content="Hello!")})
-# for m in messages['messages']:
-#     m.pretty_print()
+display(Image(graph.get_graph().draw_mermaid_png()))
 
-messages = graph.invoke({"messages": HumanMessage(content="Multiply 2 and 3")})
+# messages = graph.invoke({"messages" : HumanMessage(content="Hello")})
+messages = graph.invoke({"messages" : HumanMessage(content="multiply 22 with 2")})
+
 for m in messages['messages']:
     m.pretty_print()
+
