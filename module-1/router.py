@@ -1,57 +1,52 @@
 # load OPENAI_API_KEY
-
+from pprint import pprint
+import os
 import dotenv
 dotenv.load_dotenv()
-
-# define multiply function
-def multiply(a: int, b: int) -> int:
-    """
-    Multiply a and b
-    Args:
-        a: first int
-        b: second int
-    """
-    return a * b
-
-# define llm
+# print OPENAI_API_KEY
+# print(os.getenv("OPENAI_API_KEY"))
+# define state (MessagesState)
+from langgraph.graph import MessagesState
+class MessagesState(MessagesState):
+    pass
+# iinitialize llm
 from langchain_openai import ChatOpenAI
 llm = ChatOpenAI(model="gpt-4o")
-
-# define llm with tools
+# import HumanMessage
+from langchain_core.messages import HumanMessage
+# result = llm.invoke([HumanMessage(content="Hello World!",name="Anurag")])
+# result.pretty_print()
+# define tool
+def multiply(a:int,b:int) -> int:
+    """
+    multiply two numbers a and b
+    Args:
+        a : first integer
+        b : second integer
+    """
+    return a * b
+# bind tool to llm
 llm_with_tools = llm.bind_tools([multiply])
 
-# build the graph
-from langgraph.graph import StateGraph, START, END
-from IPython.display import Image, display
-# import MessagesState
-from langgraph.graph.message import MessagesState
-# import toolnode, tools_condition
-from langgraph.prebuilt import ToolNode
-from langgraph.prebuilt import tools_condition
-
-# Define Node
+# define node (llm)
 def tool_calling_llm(state:MessagesState):
-    return {"messages": [llm_with_tools.invoke(state["messages"])]}
+    return {"messages" : [llm_with_tools.invoke(state["messages"])]}
+# define graph & node & edges
+from langgraph.graph import StateGraph, START, END
 
-# Build Graph
 builder = StateGraph(MessagesState)
-builder.add_node("tool_calling_llm", tool_calling_llm)
-builder.add_node("tools", ToolNode([multiply]))
-builder.add_edge(START, "tool_calling_llm")
-builder.add_conditional_edges("tool_calling_llm", tools_condition)
-builder.add_edge("tools",END)
+builder.add_node("llm_with_tools", tool_calling_llm)
+builder.add_edge(START, "llm_with_tools")
+
+builder.add_edge("llm_with_tools", END)
 graph = builder.compile()
-
+# display graph
+from IPython.display import Image, display
 # display(Image(graph.get_graph().draw_mermaid_png()))
+# invoke graph with State
 
-from langchain_core.messages import HumanMessage
-# messages = graph.invoke({ "messages": HumanMessage(content="Hello", name="Lance") })
-messages = graph.invoke({ "messages": HumanMessage(content="multiply 20 with 4", name="Lance") })
+result = graph.invoke({"messages" : [HumanMessage(content="Multiply 2 with 3",name="Anurag")]})
 
-for m in messages["messages"]:
+# pretty print messages
+for m in result["messages"]:
     m.pretty_print()
-
-
-
-
-
