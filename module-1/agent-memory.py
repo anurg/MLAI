@@ -70,13 +70,34 @@ builder.add_edge(START, "assistant")
 builder.add_conditional_edges("assistant", tools_condition)
 builder.add_edge("tools", "assistant")
 builder.add_edge("tools", END)
-graph = builder.compile()
+#  Add memory
+from langgraph.checkpoint.memory import MemorySaver
+memory = MemorySaver()
+graph = builder.compile(checkpointer=memory)
 # display graph
 from IPython.display import Image, display
 # display(Image(graph.get_graph().draw_mermaid_png()))
 # invoke graph with State
 
-result = graph.invoke({"messages" : [HumanMessage(content="Add 4 and 4. Multiply the output by 2. Divide the output by 4 Then subtract 1 from output.",name="Anurag")]})
+config = {"configurable" : {"thread_id" : "1"}}
+messages =  [HumanMessage(content="Add 4 and 4. ",name="Anurag")]
+result = graph.invoke({"messages" : messages}, config=config)
+
+# pretty print messages
+for m in result["messages"]:
+    m.pretty_print()
+
+
+messages =  [HumanMessage(content="multiply that with 2. ",name="Anurag")]
+result = graph.invoke({"messages" : messages}, config=config)
+
+# pretty print messages
+for m in result["messages"]:
+    m.pretty_print()
+
+
+messages =  [HumanMessage(content="Now subtract 2 from it. ",name="Anurag")]
+result = graph.invoke({"messages" : messages}, config=config)
 
 # pretty print messages
 for m in result["messages"]:
