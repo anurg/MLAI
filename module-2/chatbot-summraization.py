@@ -2,17 +2,20 @@
 import os
 import dotenv
 dotenv.load_dotenv()
-
+from pprint import pprint
 # # check keys are loaded
 # print("OPENAI_API_KEY = ", os.getenv("OPENAI_API_KEY"))
 # print("LANGSCHAIN_API_KEY = ",os.getenv("LANGCHAIN_API_KEY"))
+os.environ["LANGCHAIN_TRACING_V2"] = "true"
+os.environ["LANGCHAIN_PROJECT"] = "langchain-academy"
 
 # define llm
 from langchain_openai import ChatOpenAI
 llm = ChatOpenAI(model="gpt-4o")
 
 #  define state (MessagesState)
-from langgraph.message import MessagesState, RemoveMessage
+from langchain_core.messages import  RemoveMessage, HumanMessage, SystemMessage
+from langgraph.graph import MessagesState
 class State(MessagesState):
     summary: str
 
@@ -62,21 +65,44 @@ def condition(state:State):
     return END
 
 #  Add memory in Graph
-from langgraph.memory.checkpoint import MemorySaver
+from langgraph.checkpoint.memory import MemorySaver
 memory = MemorySaver()
 
 
 # define graph
-builder = StateGraph(state = State)
-buiider.add_node("call_model", call_model)
+builder = StateGraph(State)
+builder.add_node("call_model", call_model)
 builder.add_node("summarize", summarize)
 builder.add_edge(START, "call_model")
 builder.add_conditional_edges("call_model", condition)
 graph = builder.compile(checkpointer=memory)
 display(Image(graph.get_graph().draw_mermaid_png))
 
-config = {"configuration", {"thread_id" : "1"}}
+config = {"configurable" : {"thread_id" : "1"}}
 
 # start conversation with memory
 
+input_message = HumanMessage(content="Hi, I am Lance.", name="Lance")
+result = graph.invoke({"messages" : [input_message]}, config)
+for m in result["messages"][-1:]:
+    m.pretty_print()
 
+input_message = HumanMessage(content="What is my name?", name="Lance")
+result = graph.invoke({"messages" : [input_message]}, config)
+for m in result["messages"][-1:]:
+    m.pretty_print()
+
+input_message = HumanMessage(content="I like 49ers.", name="Lance")
+result = graph.invoke({"messages" : [input_message]}, config)
+for m in result["messages"][-1:]:
+    m.pretty_print()
+
+
+input_message = HumanMessage(content="i like Nick Bosa, isn't he the highest paid defensive player?")
+output = graph.invoke({"messages": [input_message]}, config) 
+for m in output['messages'][-1:]:
+    m.pretty_print()
+
+
+summary = graph.get_state(config).values.get("summary","")
+print(summary)
