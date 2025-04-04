@@ -1,81 +1,70 @@
-from typing_extensions import TypedDict
-import random
-from typing import Literal
-from dataclasses import dataclass
-from pydantic import BaseModel, ValidationError, field_validator
-
-from IPython.display import Image, display
+from typing import TypedDict, Annotated
 from langgraph.graph import StateGraph, START, END
+from langgraph.errors import InvalidUpdateError
+from IPython.display import Image, display
+from operator import add
 
-# define the state of the graph
+def custom_reducer(left:list|None,right:list|None) -> list:
+    """Safely combine two lists, handling cases where either or both inputs might be None.
+
+    Args:
+        left (list | None): The first list to combine, or None.
+        right (list | None): The second list to combine, or None.
+
+    Returns:
+        list: A new list containing all elements from both input lists.
+               If an input is None, it's treated as an empty list.
+    """
+    if not left:
+        left = []
+    if not right:
+        right = []
+    return left + right
 # class State(TypedDict):
-#     graph_state:str
+#     num:int
+class DefaultState(TypedDict):
+    num:Annotated[list[int],add]
 
-# @dataclass
-# class State:
-#     name:str
-#     mood:Literal["happy","sad"]
+class CustomReducerState(TypedDict):
+    num:Annotated[list[int],custom_reducer]
 
-class State(BaseModel):
-    name:str
-    mood:str
 
-    @field_validator("mood")
-    @classmethod
-    def validate_mood(cls, value):
-        if value not in ["happy","sad"]:
-            raise ValueError("Mood must be either 'happy' or 'sad'")
-        return value
-# try:
-#     state = State(name="Anurag",mood="mad")
-#     print(state)
-# except ValidationError as e:
-#     print(e)    
-        
-
-# define the nodes of the graph
 
 def node_1(state):
-    return {"name": state.name+" is ... "}
+    return {"num" : None}
+    # return {"num" : [state["num"][-1]+1]}
 
-def node_2(state):
-    return {"mood": "happpy!"}
+# def node_2(state):
+#     return {"num" : [state["num"][-1]+1]}
 
-def node_3(state):
-    return {"mood":  "sad"}
+# def node_3(state):
+#     return {"num" : [state["num"][-1]+1]}
 
-# define edges of the graph
+builder = StateGraph(CustomReducerState)
+# builder = StateGraph(DefaultState)
+builder.add_node("node_1", node_1)
+# builder.add_node("node_2", node_2)
+# builder.add_node("node_3", node_3)
 
-def decide_mood(state) -> Literal["node_2", "node_3"]:
-    if random.random() < 0.5:
-        return "node_2"
-    return "node_3"
-
-# build the graph
-builder = StateGraph(State)
-builder.add_node("node_1",node_1)
-builder.add_node("node_2",node_2)
-builder.add_node("node_3",node_3)
-
-# build the edges
 builder.add_edge(START,"node_1")
-builder.add_conditional_edges("node_1",decide_mood)
-builder.add_edge("node_2",END)
-builder.add_edge("node_3",END)
+builder.add_edge("node_1",END)
+# builder.add_edge("node_1", "node_2")
+# builder.add_edge("node_1", "node_3")
 
-# add
+# builder.add_edge("node_2", END)
+# builder.add_edge("node_3", END)
+
+
 graph = builder.compile()
+
+display(Image(graph.get_graph().draw_mermaid_png()))
+# try:
+#     result = graph.invoke({"num":[1]})
+#     print(result)
+# except InvalidUpdateError as e:
+#     print(e)
 try:
-    result = graph.invoke(State(name="Anurag",mood="mad"))
+    result = graph.invoke({"num":[2]})
     print(result)
-except ValidationError as e:
+except TypeError as e:
     print(e)
-    
-
-
-
-
-
-
-
-
