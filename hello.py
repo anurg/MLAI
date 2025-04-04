@@ -1,50 +1,81 @@
-from pprint import pprint
-from typing import TypedDict, Annotated
-from langgraph.graph.message import add_messages
-from langgraph.graph import MessagesState
-from langchain_core.messages import HumanMessage,AIMessage, SystemMessage, AnyMessage
-from langchain_openai import ChatOpenAI
-from langgraph.graph import START,END,StateGraph
-from langgraph.prebuilt import ToolNode, tools_condition
+from typing_extensions import TypedDict
+import random
+from typing import Literal
+from dataclasses import dataclass
+from pydantic import BaseModel, ValidationError, field_validator
 
-def multiply(a:int, b:int) -> int:
-    """ mutiply two integers
-        a: first integer
-        b: second integer
-    """
-    return a * b
-def add(a:int, b:int) -> int:
-    """ add two integers
-        a: first integer
-        b: second integer
-    """
-    return a + b
-def subtract(a:int, b:int) -> int:
-    """ Subtract two integers
-        a: first integer
-        b: second integer
-    """
-    return a - b
-tools = [multiply]
-llm = ChatOpenAI(model="gpt-4o")
-llm_with_tools=llm.bind_tools(tools)
-def tool_calling_llm(state:MessagesState):
-    return {"messages": [llm_with_tools.invoke(state["messages"])]}
+from IPython.display import Image, display
+from langgraph.graph import StateGraph, START, END
 
+# define the state of the graph
+# class State(TypedDict):
+#     graph_state:str
 
-builder = StateGraph(MessagesState)
-builder.add_node("tool_calling_llm",tool_calling_llm)
-builder.add_node("tools",ToolNode(tools))
+# @dataclass
+# class State:
+#     name:str
+#     mood:Literal["happy","sad"]
 
-builder.add_edge(START,"tool_calling_llm")
-builder.add_conditional_edges("tool_calling_llm",tools_condition)
-builder.add_edge("tools","tool_calling_llm")
+class State(BaseModel):
+    name:str
+    mood:str
 
+    @field_validator("mood")
+    @classmethod
+    def validate_mood(cls, value):
+        if value not in ["happy","sad"]:
+            raise ValueError("Mood must be either 'happy' or 'sad'")
+        return value
+# try:
+#     state = State(name="Anurag",mood="mad")
+#     print(state)
+# except ValidationError as e:
+#     print(e)    
+        
+
+# define the nodes of the graph
+
+def node_1(state):
+    return {"name": state.name+" is ... "}
+
+def node_2(state):
+    return {"mood": "happpy!"}
+
+def node_3(state):
+    return {"mood":  "sad"}
+
+# define edges of the graph
+
+def decide_mood(state) -> Literal["node_2", "node_3"]:
+    if random.random() < 0.5:
+        return "node_2"
+    return "node_3"
+
+# build the graph
+builder = StateGraph(State)
+builder.add_node("node_1",node_1)
+builder.add_node("node_2",node_2)
+builder.add_node("node_3",node_3)
+
+# build the edges
+builder.add_edge(START,"node_1")
+builder.add_conditional_edges("node_1",decide_mood)
+builder.add_edge("node_2",END)
+builder.add_edge("node_3",END)
+
+# add
 graph = builder.compile()
+try:
+    result = graph.invoke(State(name="Anurag",mood="mad"))
+    print(result)
+except ValidationError as e:
+    print(e)
+    
 
-response = graph.invoke({"messages" : HumanMessage(content="Multiply 2 and 3. Then add 4 to it. Then subtract 1 from it.")})
 
-for m in response["messages"]:
-    m.pretty_print()
+
+
+
+
 
 

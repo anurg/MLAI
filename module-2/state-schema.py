@@ -69,8 +69,12 @@ display(Image(graph.get_graph().draw_mermaid_png()))
 
 # result = graph.invoke({"name" : "Anurag"})
 # result = graph.invoke(DataClassState(name= "Anurag", mood="mad"))
-state = PydanticState(name= "Anurag", mood="sad")
-result = graph.invoke(state)
-print(result)
+try:
+    state = PydanticState(name= "Anurag", mood="mad")
+    result = graph.invoke(state)
+    print(result)
+except ValidationError as e:
+    print(e)
+    
 
 
