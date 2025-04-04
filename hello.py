@@ -13,6 +13,18 @@ def multiply(a:int, b:int) -> int:
         b: second integer
     """
     return a * b
+def add(a:int, b:int) -> int:
+    """ add two integers
+        a: first integer
+        b: second integer
+    """
+    return a + b
+def subtract(a:int, b:int) -> int:
+    """ Subtract two integers
+        a: first integer
+        b: second integer
+    """
+    return a - b
 tools = [multiply]
 llm = ChatOpenAI(model="gpt-4o")
 llm_with_tools=llm.bind_tools(tools)
@@ -26,11 +38,11 @@ builder.add_node("tools",ToolNode(tools))
 
 builder.add_edge(START,"tool_calling_llm")
 builder.add_conditional_edges("tool_calling_llm",tools_condition)
-builder.add_edge("tools",END)
+builder.add_edge("tools","tool_calling_llm")
 
 graph = builder.compile()
 
-response = graph.invoke({"messages" : HumanMessage(content="Multiply 2 and 3")})
+response = graph.invoke({"messages" : HumanMessage(content="Multiply 2 and 3. Then add 4 to it. Then subtract 1 from it.")})
 
 for m in response["messages"]:
     m.pretty_print()
