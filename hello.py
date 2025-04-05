@@ -1,70 +1,69 @@
-from typing import TypedDict, Annotated
-from langgraph.graph import StateGraph, START, END
-from langgraph.errors import InvalidUpdateError
+import dotenv
+from langchain_core.messages import SystemMessage, HumanMessage,AIMessage,RemoveMessage
+from langchain_openai import ChatOpenAI
 from IPython.display import Image, display
-from operator import add
+from langgraph.graph import StateGraph, START, END
+from langgraph.graph.message import MessagesState
+from langgraph.checkpoint.memory import MemorySaver
+from pprint import pprint
 
-def custom_reducer(left:list|None,right:list|None) -> list:
-    """Safely combine two lists, handling cases where either or both inputs might be None.
+dotenv.load_dotenv()
 
-    Args:
-        left (list | None): The first list to combine, or None.
-        right (list | None): The second list to combine, or None.
+class State(MessagesState):
+    summary: str
 
-    Returns:
-        list: A new list containing all elements from both input lists.
-               If an input is None, it's treated as an empty list.
-    """
-    if not left:
-        left = []
-    if not right:
-        right = []
-    return left + right
-# class State(TypedDict):
-#     num:int
-class DefaultState(TypedDict):
-    num:Annotated[list[int],add]
+llm = ChatOpenAI(model="gpt-4o", temperature=0)
 
-class CustomReducerState(TypedDict):
-    num:Annotated[list[int],custom_reducer]
+def call_node(state):
+    # check if summary is present, add it as System prompt
+    summary = state.get("summary","")
+    if summary :
+        system_message=f"Here is the summary of past messages {summary}" 
+        messages= [SystemMessage(content=system_message)] + state["messages"]
+    else:
+        messages = state["messages"]
+    return {"messages" : [llm.invoke(messages)] }
 
+def summarize(state):
+    # summarize the message and add to existing summary or initialize summary
+    summary = state.get("summary","")
+    if summary:
+        system_message=f"Here is the summary of past messages {summary} \n\n"
+                        "Add the summary of above messages in existing summary"
+    else:
+        system_message=f"Add the summary of above messages in summary"
 
+    messages = [SystemMessage(content=system_message)] + state["messages"]
+    response = llm.invoke(messages)
+    # delete old messages from State except last 2
+    remove_messages=[RemoveMessage(id=m.id) for m in state["messages"][:-2]]
+    return {"messages" :remove_messages, "summary" : response.content}
 
-def node_1(state):
-    return {"num" : None}
-    # return {"num" : [state["num"][-1]+1]}
-
-# def node_2(state):
-#     return {"num" : [state["num"][-1]+1]}
-
-# def node_3(state):
-#     return {"num" : [state["num"][-1]+1]}
-
-builder = StateGraph(CustomReducerState)
-# builder = StateGraph(DefaultState)
-builder.add_node("node_1", node_1)
-# builder.add_node("node_2", node_2)
-# builder.add_node("node_3", node_3)
-
-builder.add_edge(START,"node_1")
-builder.add_edge("node_1",END)
-# builder.add_edge("node_1", "node_2")
-# builder.add_edge("node_1", "node_3")
-
-# builder.add_edge("node_2", END)
-# builder.add_edge("node_3", END)
+def conditional_route(state):
+    # check for no of messages in state, if greater than 5 then route to summarize.
+    messages = state.get("messages","")
+    if len(messages)>5:
+        return "summarize"
+    return END
 
 
-graph = builder.compile()
+builder = StateGraph(State)
+builder.add_node("call_node", call_node)
+builder.add_node("summarize",summarize)
 
-display(Image(graph.get_graph().draw_mermaid_png()))
-# try:
-#     result = graph.invoke({"num":[1]})
-#     print(result)
-# except InvalidUpdateError as e:
-#     print(e)
-try:
-    result = graph.invoke({"num":[2]})
-    print(result)
-except TypeError as e:
-    print(e)
+builder.add_edge(START,"call_node")
+builder.add_conditional_edges("conditional_route", conditional_route)
+
+memory = MemorySaver()
+graph = builder.compile(checkpointer=memory)
+
+config={"configurable" : {"thread_id" : "1"}}
+messages=[HumanMessage(content="Hello I am Lance")]
+response = graph.invoke({"messages" : messages}, config=config)
+for m in response["messages"]:
+    m.pretty_print()
+
+messages=[HumanMessage(content="Whats my name?")]
+response = graph.invoke({"messages" : messages}, config=config)
+for m in response["messages"]:
+    m.pretty_print()   
