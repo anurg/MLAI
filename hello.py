@@ -28,8 +28,8 @@ def summarize(state):
     # summarize the message and add to existing summary or initialize summary
     summary = state.get("summary","")
     if summary:
-        system_message=f"Here is the summary of past messages {summary} \n\n"
-                        "Add the summary of above messages in existing summary"
+        system_message = ( f"Here is the summary of past messages {summary} \n\n"
+                        "Add the summary of above messages in existing summary" )
     else:
         system_message=f"Add the summary of above messages in summary"
 
