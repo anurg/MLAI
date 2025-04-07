@@ -1,4 +1,5 @@
-from typing import TypedDict,List,Optional,Annotated
+from typing_extensions import TypedDict
+from typing import List, Annotated, Optional
 from dotenv import load_dotenv
 
 
